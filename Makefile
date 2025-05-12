@@ -12,14 +12,11 @@ phonologen: build $(OBJ)
 build:
 	mkdir build
 
-out/%.o: phonologen/%.c out phonologen/features.h
+out/%.o: phonologen/%.c out
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 out:
 	mkdir out
 
-phonologen/features.h: features.csv
-	xxd -i features.csv phonologen/features.h
-
 clean:
-	rm -rf build out phonologen/features.h
+	rm -rf build out
