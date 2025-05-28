@@ -14,6 +14,9 @@ enum feature {
 };
 
 // Node of a hash-table-internal linked list
+// Note that key and value are NOT necessarily owned by the hash table; they're not automatically
+// freed by the table
+// Also, key and value
 struct hash_table_node {
     struct hash_table_node *next;
     void *key;
@@ -27,13 +30,23 @@ unsigned int g_feature_count;
 // List of char *s, each pointing to one heap-allocated feature name
 char **g_feature_names;
 // Hash table mapping feature names back to numbers
-struct hash_table_node *g_feature_lookup[HASH_TABLE_SIZE];
+// Keys: char *; Values: size_t
+// All reinterpreted as void * for the table
+struct hash_table_node *g_feature_lookup_table[HASH_TABLE_SIZE];
 
 // Function for hashing strings, prioritizing speed
 // Assumes string is not empty or NULL
 uint16_t hash_string(const char *);
-// Function for hashing feature matrices, keeping in mind that they can
+// Function for hashing feature matrices, keeping in mind that they're strings of 0 and 1 bytes
 uint16_t hash_feature_matrix(const feature_t []);
+
+// Adds to g_feature_lookup_table key-value pair
+// Causes error on duplicates
+void feature_lookup_table_add(char *, uint16_t);
+// Finds in g_feature_lookup_table the value pointed to by key
+// Causes error on value not found (nonexistent features)
+uint16_t feature_lookup_table_find(char *);
+
 // Frees all global data structures' allocated data before exit
 void free_global_structures(void);
 

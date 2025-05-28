@@ -21,9 +21,8 @@ static inline char *l_r_strip(char *l, char *r) {
 }
 
 // Parses first row of features UTF-8 .csv file from FILE *
-// Returns 1 on success, 0 on failure (and prints to stderr)
 // The first row of the .csv file must be an empty cell followed by any number of feature names
-static inline char parse_feature_names(FILE *fp) {
+static inline void parse_feature_names(FILE *fp) {
     char delimiter = fgetc(fp);
     // Short-circuiting to check these three bytes
     if (delimiter == '\xef' && (char) fgetc(fp) == '\xbb' && (char) fgetc(fp) == '\xbf') {
@@ -33,12 +32,12 @@ static inline char parse_feature_names(FILE *fp) {
     // This should probably be compiled to a lookup table
     if (delimiter != ';' && delimiter != '\t' && delimiter != ',') {
         fputs("Error parsing .csv: empty first cell required\n", stderr);
-        return 0;
+        exit(EXIT_FAILURE);
     }
     char line[LINE_LIMIT];
     if (!fgets(line, LINE_LIMIT, fp)) {
         fputs("Error parsing .csv: missing feature names\n", stderr);
-        return 0;
+        exit(EXIT_FAILURE);
     }
     // Pass 1: count delimiters, and add 1, to get number of features
     g_feature_count = 1;
@@ -50,7 +49,7 @@ static inline char parse_feature_names(FILE *fp) {
     g_feature_names = calloc(g_feature_count, sizeof(*g_feature_names));
     if (!g_feature_names) {
         fputs("Error parsing .csv: unable to allocate memory\n", stderr);
-        return 0;
+        exit(EXIT_FAILURE);
     }
     // Pass 2: lstrip and rstrip feature names, and put tokens in memory
     // strtok not used for this, because it would be harder
@@ -65,28 +64,24 @@ static inline char parse_feature_names(FILE *fp) {
         tokend++;
         if (tokend - lscan < 2) {
             fputs("Error parsing .csv: feature names must not be empty\n", stderr);
-            return 0;
+            exit(EXIT_FAILURE);
         }
         g_feature_names[x] = malloc(tokend - lscan);
         if (!g_feature_names[x]) {
             fputs("Error parsing .csv: unable to allocate memory\n", stderr);
-            return 0;
+            exit(EXIT_FAILURE);
         }
         strcpy(g_feature_names[x], lscan);
         lscan = tokend;
+        feature_lookup_table_add(g_feature_names[x], x);
     }
-    // Build hash table from name to index
-    return 1;
 }
 
-char parse_features(FILE *fp) {
-    if (!parse_feature_names(fp)) {
-        return 0;
-    }
+void parse_features(FILE *fp) {
+    // This will advance FP so we can parse the table afterward
+    parse_feature_names(fp);
     char line[LINE_LIMIT];
-    return 1;
 }
 
-char parse_rules(FILE *fp) {
-    return 1;
+void parse_rules(FILE *fp) {
 }
