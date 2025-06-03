@@ -89,6 +89,10 @@ const char *fmatrix_cache_find(const feature_t []);
 // Returns how first feature matrix relates to second feature matrix
 // Does not bounds-check feature matrices; note that their size must be g_feature_count
 enum set_relation fmatrix_compare(const feature_t [], const feature_t []);
+// Prints a feature matrix in [valuename valuename ...] format to stdout, for debugging purposes(?)
+// name will be omitted if include_names is false
+// Does not bounds-check feature matrices; note that their size must be g_feature_count
+void fmatrix_print(const feature_t [], char);
 
 // Frees all global data structures' allocated data before exit
 void free_global_structures(void);

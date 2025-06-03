@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
 
     char next_word[256];
     while (scanf("%255s", next_word) != EOF) {
-        printf("%d\n", (uint16_t)hash_table_strkey_find(g_feature_lookup_table, next_word));//TODO
+        fmatrix_print(hash_table_strkey_find(g_segment_lookup_table, next_word), 1);
+        putchar('\n');
     }
     return EXIT_SUCCESS;
 }

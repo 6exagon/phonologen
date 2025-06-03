@@ -142,6 +142,19 @@ enum set_relation fmatrix_compare(const feature_t a[], const feature_t b[]) {
     return outcomes[is_super * 2 + is_sub];
 }
 
+void fmatrix_print(const feature_t fmatrix[], char include_names) {
+    fputs("[ ", stdout);
+    const char mappings[] = {'0', '+', '-'};
+    for (register unsigned int f = 0; f < g_feature_count; f++) {
+        putchar(mappings[fmatrix[f]]);
+        if (include_names) {
+            fputs(g_feature_names[f], stdout);
+        }
+        putchar(' ');
+    }
+    putchar(']');
+}
+
 // Frees the nodes in one single linked list (though doesn't free the list itself; this is static)
 // If free_keys, keys will be freed as well
 static inline void free_linked_list(struct hash_table_node *list, char free_keys) {
