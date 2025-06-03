@@ -6,14 +6,12 @@
 
 #include "structures.h"
 #include "parsing.h"
+#include "util.h"
 
 // Parses command-line arguments, reads in features .csv and rule order .txt, and does mainloop
 // Returns EXIT_SUCCESS on success, EXIT_FAILURE on failure
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fputs("Usage: phonologen features-file rules-file\n", stderr);
-        return EXIT_FAILURE;
-    }
+    fail_if(argc != 3, "Usage: phonologen features-file rules-file\n");
 
     // If this fails, program need not error out; we'll just leak memory
     atexit(free_global_structures);
@@ -25,24 +23,18 @@ int main(int argc, char *argv[]) {
     // Globals are necessary because there would be too many output parameters, and they'll be
     // used everywhere
     fp = fopen(argv[1], "rb");
-    if (!fp) {
-        fprintf(stderr, "Error opening features .csv file %s\n", argv[1]);
-        return EXIT_FAILURE;
-    }
+    fail_if(!fp, "Error opening features .csv file %s\n", argv[1]);
     parse_features(fp);
     fclose(fp);
 
     fp = fopen(argv[2], "rb");
-    if (!fp) {
-        fprintf(stderr, "Error opening rules .txt file %s\n", argv[2]);
-        return EXIT_FAILURE;
-    }
+    fail_if(!fp, "Error opening rules .txt file %s\n", argv[2]);
     parse_rules(fp);
     fclose(fp);
 
     char next_word[256];
     while (scanf("%255s", next_word) != EOF) {
-        printf("%d\n", feature_lookup_table_find(next_word));
+        printf("%d\n", (uint16_t)hash_table_strkey_find(g_feature_lookup_table, next_word));//TODO
     }
     return EXIT_SUCCESS;
 }
