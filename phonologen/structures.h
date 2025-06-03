@@ -33,24 +33,24 @@ struct hash_table_node {
 // All global data structures zero- and NULL-initialized by default
 // All hash tables are arrays HASH_TABLE_SIZE big of pointers to heads of linked lists
 // Note that hash tables need no initialization
-unsigned int g_feature_count;
+extern unsigned int g_feature_count;
 // Array of char *s, each pointing to one heap-allocated feature name
 // Owns all the feature names
-char **g_feature_names;
+extern char **g_feature_names;
 // We unfortunately can't use a decision tree to store nodes in a way that would make it easy to
 // see related feature matrices, so instead we'll use a linked list of segment names and their
 // feature matrices and check them all by going through it
 // Owns all the segment names, though it does not own all the feature matrices
-struct hash_table_node *g_segment_list;
+extern struct hash_table_node *g_segment_list;
 // All hash table keys and values are reinterpreted as void * for the table
 // Hash table mapping feature names back to indices in the g_feature_names list
 // Keys: char *; Values: size_t
 // Does not own anything
-struct hash_table_node *g_feature_lookup_table[HASH_TABLE_SIZE];
+extern struct hash_table_node *g_feature_lookup_table[HASH_TABLE_SIZE];
 // Hash table mapping segments to feature matrices
 // Keys: char *; Values: feature_t []
 // Does not own anything
-struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
+extern struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
 // Hash table mapping feature matrices to segments
 // Keys: feature_t [], Values: char *
 // Inverse of the above table
@@ -60,7 +60,7 @@ struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
 // segment (for example, specifying one of a basic phone like [p]'s 0 features)
 // This add-only cache is fine since probably no more than several hundred symbols need printing
 // Owns all of the feature matrices, though it does not own all the segments
-struct hash_table_node *g_fmatrix_cache[HASH_TABLE_SIZE];
+extern struct hash_table_node *g_fmatrix_cache[HASH_TABLE_SIZE];
 
 // Function for hashing strings, prioritizing speed
 // Assumes string is not empty or NULL

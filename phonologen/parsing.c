@@ -46,7 +46,7 @@ static inline void parse_feature_names(FILE *fp, char delimiter) {
         // l_r_strip, but this is fine
         tokend++;
         fail_if(tokend - lscan < 2, "Error parsing .csv: feature names must not be empty\n");
-        g_feature_names[x] = malloc(tokend - lscan);
+        g_feature_names[x] = malloc(tokend - lscan + 1);
         fail_if(!g_feature_names[x], "Error parsing .csv: unable to allocate memory\n");
         strcpy(g_feature_names[x], lscan);
         lscan = tokend;
@@ -76,7 +76,7 @@ void parse_features(FILE *fp) {
         fail_if(!tokend, "Error parsing .csv: malformed line %u\n", line_number);
         char *feature_value_reader = tokend;
         char *lscan = l_r_strip(line, tokend);
-        char *segment_name = malloc(tokend - lscan);
+        char *segment_name = malloc(tokend - lscan + 1);
         feature_t *new_fmatrix = malloc(g_feature_count * sizeof(*new_fmatrix));
         fail_if(!segment_name || !new_fmatrix, "Error parsing .csv: unable to allocate memory\n");
         strcpy(segment_name, lscan);

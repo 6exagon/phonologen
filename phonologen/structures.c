@@ -6,6 +6,13 @@
 #include "structures.h"
 #include "util.h"
 
+unsigned int g_feature_count;
+char **g_feature_names;
+struct hash_table_node *g_segment_list;
+struct hash_table_node *g_feature_lookup_table[HASH_TABLE_SIZE];
+struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
+struct hash_table_node *g_fmatrix_cache[HASH_TABLE_SIZE];
+
 uint16_t hash_string(const char *string) {
     // This must be fast, but it does need to hash the entire string for uniqueness; some segments
     // can be long but differ only in a few bits
