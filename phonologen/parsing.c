@@ -11,6 +11,8 @@
 
 #define LINE_LIMIT 2048
 
+static const char DELIMS[] = " \t\n";
+
 // Moves char *s towards the middle of a string, until they're no longer whitespace
 // Overwrites new end of string with NUL, returns left side of string
 static inline char *l_r_strip(char *l, char *r) {
@@ -143,5 +145,160 @@ void parse_features(FILE *fp) {
     }
 }
 
+// Parses one segment, either a string from the features.csv file or a feature matrix directly
+// Returns NULL if an underscore is found instead of a segment
+// line_number used for printing error messages
+// MAY CALL strtok AGAIN! This means it's only used within parse_rule, and carefully!
+static inline feature_t *parse_segment(char *token, unsigned int line_number) {
+    if (*token == '_') {
+        // Assume this is one or more underscores, don't worry about strange exceptions
+        return NULL;
+    }
+    // Start all features at ZERO
+    feature_t *new_fmatrix = calloc(g_feature_count, sizeof(*new_fmatrix));
+    fail_if(!new_fmatrix, "Error parsing .txt: unable to allocate memory\n");
+    if (*token == '[') {
+        fail_if(
+            strlen(token) > 1,
+            "Error parsing .txt: malformed feature matrix on line %u\n",
+            line_number);
+        while ((token = strtok(NULL, DELIMS))) {
+            feature_t value = 0;
+            switch (*token) {
+                case '[':
+                    fail_if(1, "Error parsing .txt: two open braces on line %u\n", line_number);
+                case ']':
+                    fail_if(
+                        strlen(token) > 1,
+                        "Error parsing .txt: malformed feature matrix on line %u\n",
+                        line_number);
+                    // We hit a '[', read all the values and feature names, and hit a ']', so done
+                    return new_fmatrix;
+                case '0':
+                    // We shouldn't allow this, just because that's how it is by default
+                    fail_if(1, "Error parsing .txt: zero-valued feature on line %u\n", line_number);
+                default:
+                    fail_if(1, "Error parsing .txt: no feature value on line %u\n", line_number);
+                case '+':
+                    value = PLUS;
+                    break;
+                case '-':
+                    value = MINUS;
+            }
+            unsigned int index = (unsigned int) hash_table_strkey_find(
+                g_feature_lookup_table, token + 1);
+            new_fmatrix[index] = value;
+        }
+        // We got an unexpected NULL before the closing ']'
+        fail_if(1, "Error parsing .txt: unclosed feature matrix on line %u\n", line_number);
+    } else {
+        // Copy into new_fmatrix what the features for token are
+        memcpy(
+            new_fmatrix,
+            hash_table_strkey_find(g_segment_lookup_table, token),
+            g_feature_count * sizeof(*new_fmatrix));
+    }
+    // Unreachable from if-branch, but that's ok
+    return new_fmatrix;
+}
+
+// Parses one line of rules UTF-8 .txt file
+// Prints errors to stderr and exits on failure (this is what line_number is used for)
+// Format: D P > P / P P ... _ P P ...
+// Where D is either L (for left-to-right application) or R (for the opposite) and P is either a
+// segment defined in the features .csv file or a feature matrix in the format [ +f -f 0f ... ]
+// Returns pointer to new heap-allocated struct rule representing the rule for the current line
+static inline struct rule *parse_rule(char *line, unsigned int line_number) {
+    struct rule *new = malloc(sizeof(*new));
+    fail_if(!new, "Error parsing .txt: unable to allocate memory\n");
+    new->next = NULL;
+    char *tok;
+    // First, the direction
+    tok = strtok(line, DELIMS);
+    fail_if(
+        // "Left" and "Right" are also okay
+        !tok || (*tok != 'L' && *tok != 'R'),
+        "Error parsing .txt: invalid direction on line %u\n",
+        line_number);
+    new->direction = *tok;
+    // Then, the input
+    tok = strtok(NULL, DELIMS);
+    fail_if(!tok, "Error parsing .txt: incomplete line %u\n", line_number);
+    feature_t *focus = parse_segment(tok, line_number);
+    fail_if(!focus, "Error parsing .txt: _ as input on line %u\n", line_number);
+    // >
+    tok = strtok(NULL, DELIMS);
+    fail_if(!tok || strcmp(tok, ">"), "Error parsing .txt: expected '>' on line %u\n", line_number);
+    // Then, the output
+    tok = strtok(NULL, DELIMS);
+    fail_if(!tok, "Error parsing .txt: incomplete line %u\n", line_number);
+    new->output = parse_segment(tok, line_number);
+    fail_if(!new->output, "Error parsing .txt: _ as output on line %u\n", line_number);
+    // /
+    tok = strtok(NULL, DELIMS);
+    fail_if(!tok || strcmp(tok, "/"), "Error parsing .txt: expected '/' on line %u\n", line_number);
+    // Set this to an invalid value
+    new->focus_position = -1;
+    short context_length = 0;
+    while ((tok = strtok(NULL, DELIMS))) {
+        fail_if(
+            context_length >= MAX_CONTEXT_LENGTH,
+            "Error parsing .txt: context too long on line %u\n",
+            line_number);
+        feature_t *contextfm = parse_segment(tok, line_number);
+        if (contextfm) {
+            new->context[context_length++] = contextfm;
+        } else {
+            fail_if(
+                new->focus_position >= 0,
+                "Error parsing .txt: multiple _ on line %u\n",
+                line_number);
+            new->focus_position = context_length;
+            new->context[context_length++] = focus;
+        }
+    }
+    new->context_length = context_length;
+    fail_if(
+        new->focus_position == -1,
+        "Error parsing .txt: no _ on line %u\n",
+        line_number);
+    return new;
+}
+
 void parse_rules(FILE *fp) {
+    char line[LINE_LIMIT];
+    fail_if(!fgets(line, LINE_LIMIT, fp), "Error parsing .txt: empty file");
+    struct rule *tail = parse_rule(line, 1);
+    g_rules = tail;
+    unsigned int line_number = 2;
+    while (fgets(line, LINE_LIMIT, fp)) {
+        struct rule *new = parse_rule(line, line_number);
+        tail->next = new;
+        tail = new;
+        line_number++;
+    }
+}
+
+feature_t **parse_word(char *word, size_t *output_len) {
+    register size_t segments = 1;
+    for (char *c = word; *c; c++) {
+        segments += (*c == '.');
+    }
+    *output_len = segments;
+    feature_t **output = malloc(segments * sizeof(*output));
+    fail_if(!output, "Error parsing word: unable to allocate memory\n");
+    segments = 0;
+    for (char *tok = strtok(word, "."); tok; tok = strtok(NULL, ".")) {
+        // We need copies of existing feature matrices; these need to be modified by rules
+        feature_t *copy = malloc(g_feature_count * sizeof(*copy));
+        fail_if(!copy, "Error parsing word: unable to allocate memory\n");
+        // Copy into copy what the features for token are
+        memcpy(
+            copy,
+            hash_table_strkey_find(g_segment_lookup_table, tok),
+            g_feature_count * sizeof(*copy));
+        output[segments] = copy;
+        segments++;
+    }
+    return output;
 }

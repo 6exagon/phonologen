@@ -3,10 +3,34 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "structures.h"
 #include "parsing.h"
 #include "util.h"
+
+// Returns whether rule exactly matches the feature matrices given by environment
+// Assumes environment points to an array of pointers exactly r->context_length long
+static inline char rule_matches(const struct rule *r, feature_t *const *environment) {
+    for (register short x = 0; x < r->context_length; x++) {
+        enum set_relation sr = fmatrix_compare(r->context[x], environment[x]);
+        if (sr == NONE || sr == SUPERSET) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// Applies mask fmatrix to changed fmatrix (for every PLUS or MINUS in mask, sets that in changed)
+static inline void fmatrix_apply(const feature_t mask[], feature_t *changed) {
+    for (register unsigned int f = 0; f < g_feature_count; f++) {
+        if (mask[f] == PLUS) {
+            changed[f] = PLUS;
+        } else if (mask[f] == MINUS) {
+            changed[f] = MINUS;
+        }
+    }
+}
 
 // Parses command-line arguments, reads in features .csv and rule order .txt, and does mainloop
 // Returns EXIT_SUCCESS on success, EXIT_FAILURE on failure
@@ -34,8 +58,37 @@ int main(int argc, char *argv[]) {
 
     char next_word[256];
     while (scanf("%255s", next_word) != EOF) {
-        fmatrix_print(hash_table_strkey_find(g_segment_lookup_table, next_word), 1);
-        putchar('\n');
+        size_t len;
+        // This tokenizes next_word, messing it up
+        feature_t **next_word_fmatrices = parse_word(next_word, &len);
+        for (struct rule *r = g_rules; r; r = r->next) {
+            if (r->direction == 'L') {
+                for (size_t x = 0; x <= len - r->context_length; x++) {
+                    if (rule_matches(r, next_word_fmatrices + x)) {
+                        fmatrix_apply(r->output, next_word_fmatrices[x + r->focus_position]);
+                    }
+                }
+            } else {
+                // r->direction == 'R'
+                size_t x = len - r->context_length;
+                while (1) {
+                    if (rule_matches(r, next_word_fmatrices + x)) {
+                        fmatrix_apply(r->output, next_word_fmatrices[x + r->focus_position]);
+                    }
+                    // Can't check if a size_t >= 0 for obvious reasons
+                    // When this overflows it will be well-defined, since size_t is unsigned
+                    if (x-- == 0) {
+                        break;
+                    }
+                }
+            }
+        }
+        for (size_t x = 0; x < len; x++) {
+            fputs(fmatrix_cache_find(next_word_fmatrices[x]), stdout);
+            free(next_word_fmatrices[x]);
+        }
+        putchar(' ');
+        free(next_word_fmatrices);
     }
     return EXIT_SUCCESS;
 }

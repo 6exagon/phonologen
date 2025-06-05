@@ -5,6 +5,8 @@
 
 // This is needed because hash functions output uint16_t
 #define HASH_TABLE_SIZE (UINT16_MAX + 1)
+// This will make our struct rule 128 bytes long including padding
+#define MAX_CONTEXT_LENGTH 13
 
 // This is unfortunately required for one-byte enums
 typedef char feature_t;
@@ -28,6 +30,20 @@ struct hash_table_node {
     struct hash_table_node *next;
     const void *key;
     const void *value;
+};
+// Phonological rule, with pointer to the next rule that should be applied
+struct rule {
+    // An array of feature matrices for surrounding context for the input, including the input itself
+    feature_t *context[MAX_CONTEXT_LENGTH];
+    // What gets changed about input (here, any nonzero values are set in the focus)
+    feature_t *output;
+    struct rule *next;
+    short context_length;
+    // Which position of the context the input is (so rather than A > B / C _ D, > B / C _A_ D in
+    // representation)
+    short focus_position;
+    // Either L for left-to-right, or R for right-to-left
+    char direction;
 };
 
 // All global data structures zero- and NULL-initialized by default
@@ -61,6 +77,9 @@ extern struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
 // This add-only cache is fine since probably no more than several hundred symbols need printing
 // Owns all of the feature matrices, though it does not own all the segments
 extern struct hash_table_node *g_fmatrix_cache[HASH_TABLE_SIZE];
+// Linked list of all phonological rules to be applied, in order
+// Owns all of the data structures within it
+extern struct rule *g_rules;
 
 // Function for hashing strings, prioritizing speed
 // Assumes string is not empty or NULL
@@ -89,10 +108,16 @@ const char *fmatrix_cache_find(const feature_t []);
 // Returns how first feature matrix relates to second feature matrix
 // Does not bounds-check feature matrices; note that their size must be g_feature_count
 enum set_relation fmatrix_compare(const feature_t [], const feature_t []);
-// Prints a feature matrix in [valuename valuename ...] format to stdout, for debugging purposes(?)
+
+// FOR DEBUGGING PURPOSES(?)
+// Prints a feature matrix in [valuename valuename ...] format to stdout
 // name will be omitted if include_names is false
 // Does not bounds-check feature matrices; note that their size must be g_feature_count
 void fmatrix_print(const feature_t [], char);
+// Prints a rule to stdout followed by a newline
+// Recursively prints any rules attached to it afterwards, also followed by newlines
+// If rule is none, prints "END\n"
+void rule_print(struct rule *);
 
 // Frees all global data structures' allocated data before exit
 void free_global_structures(void);

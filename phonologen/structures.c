@@ -12,6 +12,7 @@ struct hash_table_node *g_segment_list;
 struct hash_table_node *g_feature_lookup_table[HASH_TABLE_SIZE];
 struct hash_table_node *g_segment_lookup_table[HASH_TABLE_SIZE];
 struct hash_table_node *g_fmatrix_cache[HASH_TABLE_SIZE];
+struct rule *g_rules;
 
 uint16_t hash_string(const char *string) {
     // This must be fast, but it does need to hash the entire string for uniqueness; some segments
@@ -74,7 +75,7 @@ void fmatrix_cache_add(const feature_t key[], const char *value) {
     }
     // Make a new node and add the key and value to it
     *next_ptr = malloc(sizeof(**next_ptr));
-    fail_if(!*next_ptr, "Error parsing .csv: unable to allocate memory\n");
+    fail_if(!*next_ptr, "Error: unable to allocate memory\n");
     (*next_ptr)->next = NULL;
     (*next_ptr)->key = key;
     (*next_ptr)->value = value;
@@ -162,6 +163,40 @@ void fmatrix_print(const feature_t fmatrix[], char include_names) {
     putchar(']');
 }
 
+// If a feature matrix is found in the cache, print the symbol for it,
+// otherwise print the feature matrix
+// This allows printing phonological rules much more easily
+static inline void segment_print(const feature_t fmatrix[]) {
+    const char *fname = fmatrix_cache_find(fmatrix);
+    if (fname) {
+        fputs(fname, stdout);
+    } else {
+        fmatrix_print(fmatrix, 1);
+    }
+}
+
+void rule_print(struct rule *rule) {
+    if (!rule) {
+        puts("END");
+        return;
+    }
+    const feature_t *focus = rule->context[rule->focus_position];
+    segment_print(focus);
+    fputs(" > ", stdout);
+    segment_print(rule->output);
+    fputs(" /", stdout);
+    for (short x = 0; x < rule->context_length; x++) {
+        putchar(' ');
+        if (x == rule->focus_position) {
+            putchar('_');
+        } else {
+            segment_print(rule->context[x]);
+        }
+    }
+    putchar('\n');
+    rule_print(rule->next);
+}
+
 // Frees the nodes in one single linked list (though doesn't free the list itself; this is static)
 // If free_keys, keys will be freed as well
 static inline void free_linked_list(struct hash_table_node *list, char free_keys) {
@@ -185,6 +220,20 @@ static inline void free_hash_table(struct hash_table_node *table[], char free_ke
     } while (--index);
 }
 
+// Frees everything included in the rule
+static inline void free_rule(struct rule *rule) {
+    while (rule) {
+        struct rule *next = rule->next;
+        free(rule->output);
+        for (short x = 0; x < rule->context_length; x++) {
+            free(rule->context[x]);
+        }
+        // No free rule->context, it's an array
+        free(rule);
+        rule = next;
+    }
+}
+
 void free_global_structures() {
     // The freeing of its contents is below
     free_hash_table(g_feature_lookup_table, 0);
@@ -198,4 +247,5 @@ void free_global_structures() {
     // Note that all the values (feature matrices) have already been freed! Do not touch these
     // The segment names are all freed here
     free_linked_list(g_segment_list, 1);
+    free_rule(g_rules);
 }
