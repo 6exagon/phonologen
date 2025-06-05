@@ -1,4 +1,2 @@
-R o > u / _
-L p > b / a _ a
-R k > g / a _ a
-L a > [ +high ] / i _ [ +high ]
+R [ -voice ] > [ +voice ] / [ +syllabic ] _ [ +syllabic ]
+L [ +syllabic ] > [ +high ] / i _ [ +high ]

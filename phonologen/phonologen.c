@@ -9,12 +9,16 @@
 #include "parsing.h"
 #include "util.h"
 
-// Returns whether rule exactly matches the feature matrices given by environment
+// Returns whether rule matches (applies) to the feature matrices given by environment
 // Assumes environment points to an array of pointers exactly r->context_length long
+// Thus, this must be called a number of times proportional to the length of the input string per
+// rule application
 static inline char rule_matches(const struct rule *r, feature_t *const *environment) {
     for (register short x = 0; x < r->context_length; x++) {
         enum set_relation sr = fmatrix_compare(r->context[x], environment[x]);
-        if (sr == NONE || sr == SUPERSET) {
+        // Exact match is good; superset is also good (the rule is a superset of the de facto
+        // environment)
+        if (sr == NONE || sr == SUBSET) {
             return 0;
         }
     }
