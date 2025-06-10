@@ -19,7 +19,8 @@ void parse_features(FILE *);
 // Where D is either L (for left-to-right application) or R (for the opposite) and P is either a
 // segment defined in the features .csv file or a feature matrix in the format [ +f -f 0f ... ]
 void parse_rules(FILE *);
-// Parses UTF-8 word, where segments are separated by . (TODO for now)
+// Parses UTF-8 word, where segments are adjacent to each other (parses segments greedily, which
+// may lead to unexpected outcomes in case of ambiguity)
 // Outputs dynamically allocated feature matrix array of the proper size (one feature matrix per
 // segment in the word)
 // Writes the size of this new array to the output_len parameter

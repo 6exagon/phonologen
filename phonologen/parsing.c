@@ -185,7 +185,7 @@ static inline feature_t *parse_segment(char *token, unsigned int line_number) {
                 case '-':
                     value = MINUS;
             }
-            unsigned int index = (unsigned int) hash_table_strkey_find(
+            unsigned int index = (unsigned int) (uintptr_t) hash_table_strkey_find(
                 g_feature_lookup_table, token + 1);
             new_fmatrix[index] = value;
         }
@@ -279,26 +279,52 @@ void parse_rules(FILE *fp) {
     }
 }
 
-feature_t **parse_word(char *word, size_t *output_len) {
-    register size_t segments = 1;
-    for (char *c = word; *c; c++) {
-        segments += (*c == '.');
+
+// Returns the length of substr if it matches str (up until its end, but not the end of str),
+// zero if not
+static inline size_t strmatch(const char *str, const char *substr) {
+    register size_t match = 0;
+    while (*substr) {
+        if (*str++ != *substr++) {
+            return 0;
+        }
+        match++;
     }
-    *output_len = segments;
-    feature_t **output = malloc(segments * sizeof(*output));
+    return match;
+}
+
+feature_t **parse_word(char *word, size_t *output_len) {
+    // Our strategy will be: while word isn't empty, look through the entire g_segment_list for the
+    // longest matching segment that does match completely, then remove that, emit its feature
+    // matrix, and keep going
+    // There should be no two strings that match at the beginning and have the same length; that
+    // would imply duplicate segments, which we have checked for already
+    // TODO If g_segment_list were sorted in descending order of size, this would be much faster
+    // TODO If everything is fully implemented, and this is still a good idea, change it
+    // TODO It may also be a good idea to have one linked list per starting character, all desc.
+    // Good upper bound so we don't need to realloc, and it doesn't use that much RAM anyways
+    feature_t **output = malloc(strlen(word) * sizeof(*output));
     fail_if(!output, "Error parsing word: unable to allocate memory\n");
-    segments = 0;
-    for (char *tok = strtok(word, "."); tok; tok = strtok(NULL, ".")) {
+    register size_t segments = 0;
+    while (*word) {
+        const feature_t *max_length_fmatrix = NULL;
+        size_t max_length = 0;
+        for (struct hash_table_node *l_iter = g_segment_list; l_iter; l_iter = l_iter->next) {
+            register size_t match_length = strmatch(word, l_iter->key);
+            if (match_length > max_length) {
+                max_length = match_length;
+                max_length_fmatrix = l_iter->value;
+            }
+        }
+        fail_if(!max_length, "Error parsing word: nothing matches the start of %s\n", word);
         // We need copies of existing feature matrices; these need to be modified by rules
         feature_t *copy = malloc(g_feature_count * sizeof(*copy));
         fail_if(!copy, "Error parsing word: unable to allocate memory\n");
         // Copy into copy what the features for token are
-        memcpy(
-            copy,
-            hash_table_strkey_find(g_segment_lookup_table, tok),
-            g_feature_count * sizeof(*copy));
-        output[segments] = copy;
-        segments++;
+        memcpy(copy, max_length_fmatrix, g_feature_count * sizeof(*copy));
+        output[segments++] = copy;
+        word += max_length;
     }
+    *output_len = segments;
     return output;
 }
