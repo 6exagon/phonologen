@@ -24,8 +24,9 @@ void parse_rules(FILE *);
 // Outputs dynamically allocated feature matrix array of the proper size (one feature matrix per
 // segment in the word)
 // Writes the size of this new array to the output_len parameter
+// This is a long rather than size_t for subtraction to yield a negative
 // Prints errors to stderr and exits on failure
 // Assumes input word is not NULL and not an empty string
-feature_t **parse_word(char *, size_t *);
+feature_t **parse_word(char *, long *);
 
 #endif

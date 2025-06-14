@@ -62,27 +62,22 @@ int main(int argc, char *argv[]) {
 
     char next_word[256];
     while (scanf("%255s", next_word) != EOF) {
-        size_t len;
+        long len;
         // This tokenizes next_word, messing it up
         feature_t **next_word_fmatrices = parse_word(next_word, &len);
         for (struct rule *r = g_rules; r; r = r->next) {
+            // Use long rather than size_t so it can become negative
             if (r->direction == 'L') {
-                for (size_t x = 0; x <= len - r->context_length; x++) {
+                for (long x = 0; x <= len - r->context_length; x++) {
                     if (rule_matches(r, next_word_fmatrices + x)) {
                         fmatrix_apply(r->output, next_word_fmatrices[x + r->focus_position]);
                     }
                 }
             } else {
                 // r->direction == 'R'
-                size_t x = len - r->context_length;
-                while (1) {
+                for (long x = len - r->context_length; x >= 0; x--) {
                     if (rule_matches(r, next_word_fmatrices + x)) {
                         fmatrix_apply(r->output, next_word_fmatrices[x + r->focus_position]);
-                    }
-                    // Can't check if a size_t >= 0 for obvious reasons
-                    // When this overflows it will be well-defined, since size_t is unsigned
-                    if (x-- == 0) {
-                        break;
                     }
                 }
             }

@@ -293,7 +293,7 @@ static inline size_t strmatch(const char *str, const char *substr) {
     return match;
 }
 
-feature_t **parse_word(char *word, size_t *output_len) {
+feature_t **parse_word(char *word, long *output_len) {
     // Our strategy will be: while word isn't empty, look through the entire g_segment_list for the
     // longest matching segment that does match completely, then remove that, emit its feature
     // matrix, and keep going
@@ -305,7 +305,7 @@ feature_t **parse_word(char *word, size_t *output_len) {
     // Good upper bound so we don't need to realloc, and it doesn't use that much RAM anyways
     feature_t **output = malloc(strlen(word) * sizeof(*output));
     fail_if(!output, "Error parsing word: unable to allocate memory\n");
-    register size_t segments = 0;
+    register long segments = 0;
     while (*word) {
         const feature_t *max_length_fmatrix = NULL;
         size_t max_length = 0;
